@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PAYGUARD — Revenue Recovery Control Plane</title>
+  <link rel="stylesheet" href="/frontend/styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">P</div>
+        <div>
+          <div class="brand-name">PAYGUARD</div>
+          <div class="brand-sub">Revenue Recovery Control Plane</div>
+        </div>
+      </div>
+      <nav>
+        <button class="nav-item active">Overview</button>
+        <button class="nav-item" id="navIncidents">Incidents</button>
+        <button class="nav-item" id="navWarroom">War Room</button>
+        <button class="nav-item" id="navDecisions">Decision Ledger</button>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="status-dot"></div>
+        <div>
+          <div class="tiny-label">ENGINE STATUS</div>
+          <div class="status-text">Operational</div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <div class="eyebrow">MERCHANT COMMAND CENTER</div>
+          <h1>Revenue recovery, without blind automation.</h1>
+          <p class="subtitle">Detect divergence. Investigate evidence. Recover value safely.</p>
+        </div>
+        <div class="top-actions">
+          <button class="ghost-btn" id="runPortfolio">Run incident sweep</button>
+          <span class="mode-badge" id="gatewayBadge">GATEWAY: SIMULATOR</span>
+        </div>
+      </header>
+
+      <section class="metrics" id="metrics"></section>
+
+      <section class="panel gateway-panel" id="gatewayPanel">
+        <div class="panel-head">
+          <div>
+            <div class="panel-kicker">PAYMENT GATEWAY</div>
+            <h2>Razorpay verification boundary</h2>
+          </div>
+          <span class="mode-badge" id="gatewayMode">SIMULATOR ACTIVE</span>
+        </div>
+        <div id="gatewaySummary" class="benchmark-summary">Checking gateway configuration…</div>
+      </section>
+
+      <section class="panel warroom-panel" id="warroomPanel">
+        <div class="panel-head">
+          <div>
+            <div class="panel-kicker">INCIDENT WAR ROOM</div>
+            <h2>Live recovery replay</h2>
+          </div>
+          <div class="warroom-status" id="warroomStatus">READY</div>
+        </div>
+        <div class="warroom-body">
+          <div class="warroom-topline">
+            <div><span>Events processed</span><strong id="wrEvents">0 / 100</strong></div>
+            <div><span>Incidents surfaced</span><strong id="wrIncidents">0</strong></div>
+            <div><span>Autonomous</span><strong id="wrAuto">0</strong></div>
+            <div><span>Human review</span><strong id="wrHuman">0</strong></div>
+            <div><span>Blocked</span><strong id="wrBlocked">0</strong></div>
+            <div><span>Recovered</span><strong id="wrRecovered">₹0</strong></div>
+          </div>
+          <div class="warroom-progress"><div class="warroom-progress-bar" id="wrProgress"></div></div>
+          <div class="warroom-stream" id="warroomStream">
+            <div class="stream-empty">Run the incident sweep to replay the transaction storm.</div>
+          </div>
+          <div class="warroom-note">Simulation replay only. The stream is derived from the deterministic benchmark portfolio; no real merchant money is moved.</div>
+        </div>
+      </section>
+
+      <section class="panel benchmark-panel" id="benchmarkPanel">
+        <div class="panel-head">
+          <div>
+            <div class="panel-kicker">CONTROLLED EVALUATION</div>
+            <h2>100-transaction recovery benchmark</h2>
+          </div>
+          <span class="mode-badge">SIMULATED / REPRODUCIBLE</span>
+        </div>
+        <div id="benchmarkSummary" class="benchmark-summary">Run the incident sweep to execute the deterministic adversarial portfolio and measure PAYGUARD.</div>
+      </section>
+
+      <section class="main-grid">
+        <div class="panel incidents-panel" id="incidentsSection">
+          <div class="panel-head">
+            <div>
+              <div class="panel-kicker">ACTIVE QUEUE</div>
+              <h2>Revenue-threatening incidents</h2>
+            </div>
+            <span class="live-dot"><span></span> LIVE</span>
+          </div>
+          <div id="incidentList" class="incident-list"></div>
+        </div>
+
+        <div class="panel detail-panel" id="detailPanel">
+          <div class="panel-kicker">INVESTIGATION CONSOLE</div>
+          <div id="detailEmpty" class="empty-state">
+            <div class="empty-icon">⌁</div>
+            <h3>Select an incident</h3>
+            <p>PAYGUARD will show state, evidence, diagnosis, economics, policy and recovery controls here.</p>
+          </div>
+          <div id="detailContent" class="hidden"></div>
+        </div>
+      </section>
+
+      <section class="panel ledger-panel" id="ledgerSection">
+        <div class="panel-head">
+          <div>
+            <div class="panel-kicker">AUDIT TRAIL</div>
+            <h2>Recent AI decisions</h2>
+          </div>
+          <button class="text-btn" id="refreshLedger">Refresh</button>
+        </div>
+        <div id="ledgerTable" class="ledger-table"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="/frontend/app.js"></script>
+</body>
+</html>
