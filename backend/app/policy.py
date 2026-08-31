@@ -24,6 +24,13 @@ class RecoveryPolicy:
         if diagnosis.confidence < self.min_confidence or action.confidence < self.min_confidence:
             return PolicyDecision(action.action_type, "REQUIRE_HUMAN", "Confidence below autonomous threshold.")
 
+        if state.risk_flags:
+            return PolicyDecision(
+                action.action_type,
+                "DENY",
+                f"Risk signal present: {', '.join(state.risk_flags)}. Autonomous recovery is blocked.",
+            )
+
         if action.action_type == "REFUND_DUPLICATE":
             return PolicyDecision(action.action_type, "REQUIRE_HUMAN", "Refund is financially irreversible in the MVP.")
 
