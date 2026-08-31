@@ -35,4 +35,5 @@ def canonical_payload(raw: Dict) -> Dict:
         "available_quantity": raw.get("available_quantity"),
         "reserved_quantity": raw.get("reserved_quantity"),
         "error": raw.get("error"),
+        "fraud_signal": raw.get("fraud_signal") or raw.get("risk_signal") or raw.get("risk_flag"),
     }
