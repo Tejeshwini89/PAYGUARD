@@ -58,6 +58,8 @@ class StateProjector:
                     state.inventory.reserved_quantity = p["reserved_quantity"]
             elif kind == "INVENTORY_RELEASED":
                 state.inventory.status = "AVAILABLE"
+                if p.get("fraud_signal"):
+                    state.add_risk_flag(str(p["fraud_signal"]).upper())
 
             elif kind == "FULFILLMENT_STARTED":
                 state.fulfillment.status = "PROCESSING"
