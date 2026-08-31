@@ -53,6 +53,23 @@ def test_high_value_requires_human():
     assert decision.decision == "REQUIRE_HUMAN"
 
 
+def test_executor_denies_by_default():
+    store = MerchantRecoveryStore()
+    executor = RecoveryExecutor(store)
+    state = TransactionState("tx")
+    state.payment.status = "CAPTURED"
+    state.payment.amount = 4999
+    state.order.status = "CREATED"
+    state.inventory.status = "AVAILABLE"
+
+    result = executor.execute("RECONSTRUCT_ORDER", state)
+
+    assert result.status == "REJECTED"
+    assert result.revenue_preserved == 0
+    assert state.order.status == "CREATED"
+    assert state.transaction_id not in store.order_confirmed
+
+
 def test_verifier_detects_failed_mutation():
     store = MerchantRecoveryStore()
     executor = RecoveryExecutor(store)
