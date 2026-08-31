@@ -55,6 +55,24 @@ SCENARIOS = {
 }
 
 
+@app.on_event("startup")
+def initialize_recovery_dependencies():
+    """Keep recoverable state in app.state so tests and app lifecycle share one source."""
+    if not hasattr(app.state, "payguard_recovery_store"):
+        app.state.payguard_recovery_store = recovery_store
+    if not hasattr(app.state, "payguard_executor"):
+        app.state.payguard_executor = executor
+    if not hasattr(app.state, "payguard_ledger"):
+        app.state.payguard_ledger = ledger
+
+
+def _recovery_dependencies():
+    return (
+        getattr(app.state, "payguard_executor", executor),
+        getattr(app.state, "payguard_ledger", ledger),
+    )
+
+
 @app.get("/")
 def root():
     return FileResponse(FRONTEND_DIR / "index.html")
@@ -235,14 +253,15 @@ def recover(scenario: str, action_type: str, human_approved: bool = False, appro
     selected = next((a for a in diagnosis.candidate_actions if a.action_type == action_type), None)
     if selected is None:
         return {"error": "action_not_proposed", "proposed_actions": [a.model_dump() for a in diagnosis.candidate_actions]}
+    recovery_executor, recovery_ledger = _recovery_dependencies()
     outcome = perform_recovery(
         incident,
         DeterministicInvestigator().investigate(incident, tools),
         CandidateAction(**selected.model_dump()),
         state,
         policy,
-        executor,
-        ledger,
+        recovery_executor,
+        recovery_ledger,
         incident_id=f"{scenario}:{tx_id}:{action_type}",
         human_approved=human_approved,
         approval_token=approval_token,
@@ -272,7 +291,8 @@ def get_metrics():
 
 @app.get("/ledger")
 def get_ledger():
-    return {"entries": [entry.__dict__ for entry in ledger.entries]}
+    _, recovery_ledger = _recovery_dependencies()
+    return {"entries": [entry.__dict__ for entry in recovery_ledger.entries]}
 
 
 @app.get("/portfolio/benchmark")
