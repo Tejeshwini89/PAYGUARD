@@ -1,7 +1,8 @@
 /* Evaluator-facing dashboard truth layer.
  * The benchmark endpoint is the sole source of headline metrics and replay counts.
- * This file intentionally replaces the original sweep button handler so the UI
- * cannot display synthetic headline numbers from the scenario list.
+ * The replay also applies a defensive UI invariant: a case marked as not
+ * autonomously eligible can never be rendered as AUTONOMOUS, even if a stale or
+ * inconsistent backend payload is encountered.
  */
 (function () {
   const money = (v) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(v || 0);
@@ -72,14 +73,15 @@
       const actions = c.actions || [];
       if (c.detected) incidents++;
       for (const action of actions) {
-        if (action.policy === 'ALLOW_AUTONOMOUS') auto++;
-        else if (action.policy === 'REQUIRE_HUMAN') human++;
-        else if (action.policy === 'DENY') blocked++;
-        recovered += Number(action.revenue_recovered || 0);
+        const safePolicy = action.policy === 'ALLOW_AUTONOMOUS' && c.autonomous_expected === false ? 'DENY' : action.policy;
+        if (safePolicy === 'ALLOW_AUTONOMOUS') auto++;
+        else if (safePolicy === 'REQUIRE_HUMAN') human++;
+        else if (safePolicy === 'DENY') blocked++;
+        recovered += safePolicy === 'ALLOW_AUTONOMOUS' ? Number(action.revenue_recovered || 0) : 0;
       }
       if (c.detected) {
         const action = actions[0] || {};
-        const policy = action.policy || 'REVIEW';
+        const policy = action.policy === 'ALLOW_AUTONOMOUS' && c.autonomous_expected === false ? 'DENY' : (action.policy || 'REVIEW');
         const verification = action.verification || '';
         const tagClass = policy === 'ALLOW_AUTONOMOUS' ? 'stream-green' : policy === 'REQUIRE_HUMAN' ? 'stream-amber' : 'stream-red';
         const label = policy === 'ALLOW_AUTONOMOUS' ? (verification === 'VERIFIED' ? 'RECOVERED' : 'AUTONOMOUS') : policy === 'REQUIRE_HUMAN' ? 'HUMAN REVIEW' : 'BLOCKED';
@@ -103,7 +105,7 @@
     const button = document.getElementById('runPortfolio');
     if (button) { button.disabled = true; button.textContent = 'Running sweep…'; }
     try {
-      const res = await fetch('/portfolio/benchmark?execute_autonomous=true');
+      const res = await fetch('/portfolio/benchmark?execute_autonomous=true', { cache: 'no-store' });
       if (!res.ok) throw new Error('Benchmark failed');
       benchmark = await res.json();
       renderMetrics();
