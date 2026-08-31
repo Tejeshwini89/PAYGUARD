@@ -28,6 +28,7 @@ from .gateway import RazorpayGatewayClient, SimulatedGatewayClient
 from .ingest import EventIngestor
 from .razorpay_webhook import build_webhook_event
 from .metrics import METRICS
+from .approval import ApprovalService
 
 app = FastAPI(title="PAYGUARD", version="1.0.0")
 APP_ROOT = Path(__file__).resolve().parents[2]
@@ -41,6 +42,7 @@ policy = RecoveryPolicy()
 recovery_store = MerchantRecoveryStore()
 executor = RecoveryExecutor(recovery_store)
 ledger = DecisionLedger()
+approval_service = ApprovalService()
 razorpay_gateway = RazorpayGatewayClient()
 sim_gateway = SimulatedGatewayClient()
 razorpay_ingestor = EventIngestor()
@@ -64,12 +66,15 @@ def initialize_recovery_dependencies():
         app.state.payguard_executor = executor
     if not hasattr(app.state, "payguard_ledger"):
         app.state.payguard_ledger = ledger
+    if not hasattr(app.state, "payguard_approval_service"):
+        app.state.payguard_approval_service = approval_service
 
 
 def _recovery_dependencies():
     return (
         getattr(app.state, "payguard_executor", executor),
         getattr(app.state, "payguard_ledger", ledger),
+        getattr(app.state, "payguard_approval_service", approval_service),
     )
 
 
@@ -253,7 +258,7 @@ def recover(scenario: str, action_type: str, human_approved: bool = False, appro
     selected = next((a for a in diagnosis.candidate_actions if a.action_type == action_type), None)
     if selected is None:
         return {"error": "action_not_proposed", "proposed_actions": [a.model_dump() for a in diagnosis.candidate_actions]}
-    recovery_executor, recovery_ledger = _recovery_dependencies()
+    recovery_executor, recovery_ledger, recovery_approval_service = _recovery_dependencies()
     outcome = perform_recovery(
         incident,
         DeterministicInvestigator().investigate(incident, tools),
@@ -265,6 +270,7 @@ def recover(scenario: str, action_type: str, human_approved: bool = False, appro
         incident_id=f"{scenario}:{tx_id}:{action_type}",
         human_approved=human_approved,
         approval_token=approval_token,
+        approval_service=recovery_approval_service,
     )
     return {
         "incident": incident.__dict__,
@@ -291,7 +297,7 @@ def get_metrics():
 
 @app.get("/ledger")
 def get_ledger():
-    _, recovery_ledger = _recovery_dependencies()
+    _, recovery_ledger, _ = _recovery_dependencies()
     return {"entries": [entry.__dict__ for entry in recovery_ledger.entries]}
 
 
