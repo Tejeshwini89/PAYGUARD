@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Any
 
+from .approval import ApprovalService
 from .executor import RecoveryExecutor
 from .investigator import CandidateAction, Diagnosis
 from .ledger import DecisionLedger
@@ -32,15 +33,41 @@ def perform_recovery(
     ledger: DecisionLedger,
     incident_id: str,
     human_approved: bool = False,
+    approval_token: str | None = None,
+    approval_service: ApprovalService | None = None,
 ) -> RecoveryOutcome:
     policy_decision = policy.evaluate(diagnosis, action, state)
 
-    authorized = policy_decision.decision == "ALLOW_AUTONOMOUS" or (
-        policy_decision.decision == "REQUIRE_HUMAN" and human_approved
-    )
+    authorized = policy_decision.decision == "ALLOW_AUTONOMOUS"
+    approval = None
+    if policy_decision.decision == "REQUIRE_HUMAN" and human_approved:
+        # Legacy boolean approvals are intentionally no longer sufficient. A caller
+        # must present a cryptographically signed, action-bound, one-time grant.
+        service = approval_service or ApprovalService()
+        approval = service.validate(
+            approval_token or "",
+            incident_id=incident_id,
+            transaction_id=state.transaction_id,
+            action_type=action.action_type,
+        )
+        authorized = approval is not None
 
     execution = executor.execute(action.action_type, state, approved=authorized)
     verification = verify(action.action_type, state, execution)
+
+    details = {
+        "policy_reason": policy_decision.reason,
+        "action_reason": action.reason,
+        "action_confidence": action.confidence,
+        "expected_recovery": action.expected_recovery,
+        "expected_cost": action.expected_cost,
+        "execution_message": execution.message,
+        "verification_message": verification.message,
+    }
+    if approval is not None:
+        details["approval_id"] = approval.approval_id
+        details["approver"] = approval.approver
+        details["approval_expires_at"] = approval.expires_at
 
     entry = ledger.record(
         incident_id=incident_id,
@@ -51,15 +78,7 @@ def perform_recovery(
         verification_status=verification.status,
         revenue_recovered=verification.revenue_recovered,
         action_cost=execution.action_cost,
-        details={
-            "policy_reason": policy_decision.reason,
-            "action_reason": action.reason,
-            "action_confidence": action.confidence,
-            "expected_recovery": action.expected_recovery,
-            "expected_cost": action.expected_cost,
-            "execution_message": execution.message,
-            "verification_message": verification.message,
-        },
+        details=details,
     )
 
     return RecoveryOutcome(
