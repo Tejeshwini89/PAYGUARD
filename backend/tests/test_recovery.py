@@ -6,7 +6,7 @@ from app.investigator import DeterministicInvestigator
 from app.ledger import DecisionLedger
 from app.policy import RecoveryPolicy
 from app.recovery import perform_recovery
-from app.state_projector import StateProjector
+from app.projector import StateProjector
 from app.simulator import fulfillment_failure, orphaned_payment_inventory_available
 
 
@@ -48,10 +48,8 @@ def test_fulfillment_retry_is_bounded_and_idempotent():
     action = next(a for a in diagnosis.candidate_actions if a.action_type == "RETRY_FULFILLMENT")
     executor = RecoveryExecutor()
     ledger = DecisionLedger()
-
     first = perform_recovery(incident, diagnosis, action, state, RecoveryPolicy(), executor, ledger, "inc-retry-1")
     second = perform_recovery(incident, diagnosis, action, state, RecoveryPolicy(), executor, ledger, "inc-retry-2")
-
     assert first.execution["status"] == "EXECUTED"
     assert first.verification.status == "VERIFIED"
     assert second.execution["status"] == "REJECTED"
@@ -66,16 +64,12 @@ def test_high_value_retry_requires_signed_human_approval():
     ledger = DecisionLedger()
     approval_service = ApprovalService(secret="test-secret")
     incident_id = "inc-3a"
-
     denied = perform_recovery(incident, diagnosis, action, state, policy, executor, ledger, "inc-3")
     assert denied.policy.decision == "REQUIRE_HUMAN"
     assert denied.execution["status"] == "REJECTED"
-
     token = approval_service.issue(
-        incident_id=incident_id,
-        transaction_id=state.transaction_id,
-        action_type=action.action_type,
-        approver="operator@example.com",
+        incident_id=incident_id, transaction_id=state.transaction_id,
+        action_type=action.action_type, approver="operator@example.com",
     )
     approved = perform_recovery(
         incident, diagnosis, action, state, policy, executor, ledger, incident_id,
@@ -119,6 +113,10 @@ def test_approval_is_bound_to_transaction_and_action():
         action_type=action.action_type, approver="operator@example.com",
     )
     assert service.validate(token, incident_id="wrong", transaction_id=state.transaction_id, action_type=action.action_type) is None
+    token = service.issue(
+        incident_id="inc-binding", transaction_id=state.transaction_id,
+        action_type=action.action_type, approver="operator@example.com",
+    )
     assert service.validate(token, incident_id="inc-binding", transaction_id="wrong-tx", action_type=action.action_type) is None
 
 
@@ -157,9 +155,7 @@ def test_failed_verification_never_credits_recovered_revenue():
     state, incident, diagnosis, _ = _context(orphaned_payment_inventory_available())
     action = next(a for a in diagnosis.candidate_actions if a.action_type == "RECONSTRUCT_ORDER")
     ledger = DecisionLedger()
-
     outcome = perform_recovery(incident, diagnosis, action, state, RecoveryPolicy(), LyingExecutor(), ledger, "inc-5")
-
     assert outcome.execution["status"] == "EXECUTED"
     assert outcome.verification.status == "FAILED"
     assert outcome.verification.revenue_recovered == 0
