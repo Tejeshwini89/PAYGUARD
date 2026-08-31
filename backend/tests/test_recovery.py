@@ -43,17 +43,15 @@ def test_recovery_is_idempotent():
     assert second.verification.status == "VERIFIED"
 
 
-def test_fulfillment_retry_is_bounded_and_idempotent():
+def test_fulfillment_retry_requires_human_for_high_value_transaction():
     state, incident, diagnosis, _ = _context(fulfillment_failure())
     action = next(a for a in diagnosis.candidate_actions if a.action_type == "RETRY_FULFILLMENT")
     executor = RecoveryExecutor()
     ledger = DecisionLedger()
-    first = perform_recovery(incident, diagnosis, action, state, RecoveryPolicy(), executor, ledger, "inc-retry-1")
-    second = perform_recovery(incident, diagnosis, action, state, RecoveryPolicy(), executor, ledger, "inc-retry-2")
-    assert first.execution["status"] == "EXECUTED"
-    assert first.verification.status == "VERIFIED"
-    assert second.execution["status"] == "REJECTED"
-    assert state.fulfillment.attempt_count == 1
+    outcome = perform_recovery(incident, diagnosis, action, state, RecoveryPolicy(), executor, ledger, "inc-retry-1")
+    assert outcome.policy.decision == "REQUIRE_HUMAN"
+    assert outcome.execution["status"] == "REJECTED"
+    assert state.fulfillment.status == "FAILED"
 
 
 def test_high_value_retry_requires_signed_human_approval():
