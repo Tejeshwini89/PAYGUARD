@@ -24,9 +24,9 @@ async function getLedger() {
 function policyFor(item) {
   if (!item?.policy_decisions?.length) return 'INVESTIGATING';
   const decisions = item.policy_decisions;
-  if (decisions.some(d => d.status === 'ALLOW')) return 'AUTONOMOUS';
-  if (decisions.some(d => d.status === 'REQUIRE_HUMAN')) return 'HUMAN APPROVAL';
-  if (decisions.some(d => d.status === 'DENY')) return 'DENIED';
+  if (decisions.some(d => d.decision === 'ALLOW_AUTONOMOUS')) return 'AUTONOMOUS';
+  if (decisions.some(d => d.decision === 'REQUIRE_HUMAN')) return 'HUMAN APPROVAL';
+  if (decisions.some(d => d.decision === 'DENY')) return 'DENIED';
   return 'INVESTIGATING';
 }
 
@@ -257,7 +257,7 @@ async function executeRecovery(r, action) {
     const status = data?.outcome?.verification?.status || 'UNKNOWN';
     showToast(`Recovery ${status.toLowerCase()}: ${action.action_type}`);
     await refreshGateway();
-refreshDashboard();
+    refreshDashboard();
     state.selected = r; showDetail(r);
   } catch (e) {
     showToast('Recovery request failed');
