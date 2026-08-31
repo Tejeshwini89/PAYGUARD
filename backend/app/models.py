@@ -61,18 +61,11 @@ class TransactionState:
     order: OrderState = field(default_factory=OrderState)
     inventory: InventoryState = field(default_factory=InventoryState)
     fulfillment: FulfillmentState = field(default_factory=FulfillmentState)
+    risk_flags: List[str] = field(default_factory=list)
     event_ids_applied: List[str] = field(default_factory=list)
     last_occurred_at: Optional[datetime] = None
     updated_at: datetime = field(default_factory=utcnow)
 
-
-@dataclass(frozen=True)
-class Incident:
-    incident_type: str
-    transaction_id: str
-    severity: str
-    expected_state: Dict[str, str]
-    observed_state: Dict[str, str]
-    revenue_at_risk: int
-    reason: str
-    confidence: float
+    def add_risk_flag(self, flag: str) -> None:
+        if flag and flag not in self.risk_flags:
+            self.risk_flags.append(flag)
