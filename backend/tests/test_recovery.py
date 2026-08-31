@@ -1,6 +1,6 @@
 from app.detector import IncidentDetector
 from app.evidence import build_evidence
-from app.executor import MerchantRecoveryStore, RecoveryExecutor
+from app.executor import ExecutionResult, MerchantRecoveryStore, RecoveryExecutor
 from app.investigator import DeterministicInvestigator
 from app.ledger import DecisionLedger
 from app.policy import RecoveryPolicy
@@ -63,3 +63,37 @@ def test_recovery_records_ledger():
     perform_recovery(incident, diagnosis, action, state, RecoveryPolicy(), RecoveryExecutor(), ledger, "inc-4")
     assert len(ledger.entries) == 1
     assert ledger.entries[0].revenue_recovered == 7499
+
+
+def test_failed_verification_never_credits_recovered_revenue():
+    class LyingExecutor:
+        def execute(self, action_type, state, *, approved=False):
+            return ExecutionResult(
+                action_type=action_type,
+                status="EXECUTED",
+                message="Claimed success without changing downstream state.",
+                revenue_preserved=state.payment.amount,
+                action_cost=50,
+                idempotency_key=f"{action_type}:{state.transaction_id}",
+            )
+
+    state, incident, diagnosis, _ = _context(orphaned_payment_inventory_available())
+    action = next(a for a in diagnosis.candidate_actions if a.action_type == "RECONSTRUCT_ORDER")
+    ledger = DecisionLedger()
+
+    outcome = perform_recovery(
+        incident,
+        diagnosis,
+        action,
+        state,
+        RecoveryPolicy(),
+        LyingExecutor(),
+        ledger,
+        "inc-5",
+    )
+
+    assert outcome.execution["status"] == "EXECUTED"
+    assert outcome.verification.status == "FAILED"
+    assert outcome.verification.revenue_recovered == 0
+    assert ledger.entries[0].verification_status == "FAILED"
+    assert ledger.entries[0].revenue_recovered == 0
