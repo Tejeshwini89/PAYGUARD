@@ -198,6 +198,7 @@ def investigate(scenario: str):
         "investigations": investigations,
     }
 
+
 @app.get("/ai-investigate/{scenario}")
 def ai_investigate(scenario: str):
     if scenario not in SCENARIOS:
