@@ -1,8 +1,11 @@
+from datetime import datetime, timezone
+
 from app.executor import MerchantRecoveryStore, RecoveryExecutor
 from app.investigator import CandidateAction, Diagnosis
 from app.ledger import DecisionLedger
-from app.models import Incident, TransactionState
+from app.models import Event, Incident, TransactionState
 from app.policy import RecoveryPolicy
+from app.projector import StateProjector
 from app.recovery import perform_recovery
 
 
@@ -71,3 +74,21 @@ def test_unknown_inventory_is_hard_stop_even_with_high_confidence():
     decision = RecoveryPolicy().evaluate(diagnosis, action, state)
     assert decision.decision == "DENY"
     assert "Inventory" in decision.reason
+
+
+def test_high_risk_fraud_signal_blocks_autonomous_recovery():
+    now = datetime.now(timezone.utc)
+    events = [
+        Event("e1", "txn_risky", "order.created", "sim", "ord", now, now, {"order_id": "ord", "amount": 7499}),
+        Event("e2", "txn_risky", "payment.captured", "sim", "pay", now, now, {"payment_id": "pay", "amount": 7499, "method": "card"}),
+        Event("e3", "txn_risky", "inventory.released", "sim", "prod", now, now, {"fraud_signal": "HIGH", "available_quantity": 0, "reserved_quantity": 0}),
+    ]
+    state = StateProjector().project("txn_risky", events)
+    diagnosis = Diagnosis("ORPHANED_PAYMENT", "MERCHANT_ORDER_CONFIRMATION_FAILURE", 0.99)
+    action = CandidateAction("RECONSTRUCT_ORDER", "high confidence candidate", 7499, 0, 0.99)
+
+    assert state.inventory.status == "AVAILABLE"
+    assert "HIGH" in state.risk_flags
+    decision = RecoveryPolicy().evaluate(diagnosis, action, state)
+    assert decision.decision == "DENY"
+    assert "Risk signal" in decision.reason
