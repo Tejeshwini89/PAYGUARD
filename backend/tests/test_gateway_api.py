@@ -157,10 +157,12 @@ def test_recovery_api_rejects_reused_approval_token(monkeypatch):
         f'?human_approved=true&approval_token={token}'
     )
     assert first.status_code == 200
-    assert first.json()['outcome']['execution']['status'] in {'EXECUTED', 'ALREADY_EXECUTED'}
     assert second.status_code == 200
     assert second.json()['outcome']['execution']['status'] == 'REJECTED'
     assert second.json()['outcome']['verification']['revenue_recovered'] == 0
+    # The token itself must be consumed even when a duplicate business action is
+    # already complete; replaying it must never grant another authorization.
+    assert second.json()['outcome']['ledger']['details']['policy_reason']
 
 
 def test_recovery_api_autonomous_action_does_not_need_human_token():
