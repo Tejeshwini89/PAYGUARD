@@ -81,7 +81,6 @@ class PortfolioSimulator:
 
     def _delayed(self, tx: str, amount: int, i: int) -> List[Event]:
         events = self._base(tx, amount, str(i))[:3]
-        # deliberately violate arrival order while preserving event time
         events[1] = ev(f"{tx}-2", tx, "payment.captured", 2, 9, {"payment_id": f"pay_{tx}", "amount": amount, "method": "card"})
         events[2] = ev(f"{tx}-3", tx, "order.paid", 3, 4, {"order_id": f"ord_{tx}"})
         return events
@@ -221,7 +220,7 @@ def run_portfolio(total: int = 100, seed: int = 20260825, execute_autonomous: bo
                 decision = policy.evaluate(deterministic, candidate, state)
                 if decision.decision == "ALLOW_AUTONOMOUS":
                     autonomous_allowed += 1
-                    if not case.expected_autonomous and incident.incident_type in {"DUPLICATE_PAYMENT"}:
+                    if not case.expected_autonomous:
                         unsafe_autonomous += 1
                     if execute_autonomous and case.expected_autonomous and candidate.action_type in {"RECONSTRUCT_ORDER", "RETRY_FULFILLMENT"}:
                         outcome = perform_recovery(
@@ -258,10 +257,20 @@ def run_portfolio(total: int = 100, seed: int = 20260825, execute_autonomous: bo
         })
 
     precision = true_positive / (true_positive + false_positive) if (true_positive + false_positive) else 1.0
-    recall = true_positive / (true_positive + false_negative) if (true_positive + false_negative) else 1.0
+    recall = true_positive / expected_incidents if expected_incidents else 1.0
+    breakdown = {
+        "healthy": 0,
+        "delayed_webhook": 0,
+        "duplicate_webhook": 0,
+        "fulfillment_failure": 0,
+        "orphaned_recoverable": 0,
+        "duplicate_payment": 0,
+        "dangerous": 0,
+    }
+    breakdown.update(by_scenario)
 
     return PortfolioResult(
-        total_transactions=len(cases),
+        total_transactions=total,
         detected_incidents=detected,
         expected_incidents=expected_incidents,
         true_positives=true_positive,
@@ -278,6 +287,6 @@ def run_portfolio(total: int = 100, seed: int = 20260825, execute_autonomous: bo
         unsafe_autonomous_actions=unsafe_autonomous,
         duplicate_events_injected=duplicate_events_injected,
         out_of_order_cases=out_of_order_cases,
-        breakdown=by_scenario,
+        breakdown=breakdown,
         cases=case_results,
     )
