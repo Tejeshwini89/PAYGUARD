@@ -219,7 +219,7 @@ def ai_investigate(scenario: str):
 
 
 @app.post("/recover/{scenario}/{action_type}")
-def recover(scenario: str, action_type: str, human_approved: bool = False):
+def recover(scenario: str, action_type: str, human_approved: bool = False, approval_token: str | None = None):
     if scenario not in SCENARIOS:
         return {"error": "unknown_scenario", "available": list(SCENARIOS)}
     events = SCENARIOS[scenario]()
@@ -235,7 +235,18 @@ def recover(scenario: str, action_type: str, human_approved: bool = False):
     selected = next((a for a in diagnosis.candidate_actions if a.action_type == action_type), None)
     if selected is None:
         return {"error": "action_not_proposed", "proposed_actions": [a.model_dump() for a in diagnosis.candidate_actions]}
-    outcome = perform_recovery(incident, DeterministicInvestigator().investigate(incident, tools), CandidateAction(**selected.model_dump()), state, policy, executor, ledger, incident_id=f"{scenario}:{tx_id}:{action_type}", human_approved=human_approved)
+    outcome = perform_recovery(
+        incident,
+        DeterministicInvestigator().investigate(incident, tools),
+        CandidateAction(**selected.model_dump()),
+        state,
+        policy,
+        executor,
+        ledger,
+        incident_id=f"{scenario}:{tx_id}:{action_type}",
+        human_approved=human_approved,
+        approval_token=approval_token,
+    )
     return {
         "incident": incident.__dict__,
         "diagnosis": diagnosis.model_dump(),
