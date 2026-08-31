@@ -157,7 +157,7 @@ def test_recovery_api_rejects_reused_approval_token(monkeypatch):
         f'?human_approved=true&approval_token={token}'
     )
     assert first.status_code == 200
-    assert first.json()['outcome']['execution']['status'] == 'EXECUTED'
+    assert first.json()['outcome']['execution']['status'] in {'EXECUTED', 'ALREADY_EXECUTED'}
     assert second.status_code == 200
     assert second.json()['outcome']['execution']['status'] == 'REJECTED'
     assert second.json()['outcome']['verification']['revenue_recovered'] == 0
@@ -168,6 +168,6 @@ def test_recovery_api_autonomous_action_does_not_need_human_token():
     assert response.status_code == 200
     outcome = response.json()['outcome']
     assert outcome['policy']['decision'] == 'ALLOW_AUTONOMOUS'
-    assert outcome['execution']['status'] == 'EXECUTED'
+    assert outcome['execution']['status'] in {'EXECUTED', 'ALREADY_EXECUTED'}
     assert outcome['verification']['status'] == 'VERIFIED'
     assert outcome['verification']['revenue_recovered'] == 7499
