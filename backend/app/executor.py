@@ -33,7 +33,12 @@ class RecoveryExecutor:
     def _key(action_type: str, state: TransactionState) -> str:
         return f"{action_type}:{state.transaction_id}"
 
-    def execute(self, action_type: str, state: TransactionState, *, approved: bool = True) -> ExecutionResult:
+    def execute(self, action_type: str, state: TransactionState, *, approved: bool = False) -> ExecutionResult:
+        """Execute only after explicit authorization from the policy/human gate.
+
+        Deny-by-default is intentional: callers must explicitly pass approved=True
+        after authorization rather than being able to execute by omission.
+        """
         key = self._key(action_type, state)
         amount = state.payment.amount or state.order.amount or 0
 
