@@ -69,3 +69,15 @@ class TransactionState:
     def add_risk_flag(self, flag: str) -> None:
         if flag and flag not in self.risk_flags:
             self.risk_flags.append(flag)
+
+
+@dataclass(frozen=True)
+class Incident:
+    incident_type: str
+    transaction_id: str
+    severity: str
+    expected_state: Dict[str, str]
+    observed_state: Dict[str, str]
+    revenue_at_risk: int
+    reason: str
+    confidence: float
