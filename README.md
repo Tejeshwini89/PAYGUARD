@@ -153,13 +153,15 @@ cd backend
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-The repository currently contains a deterministic test suite covering transaction handling, incident detection, investigation, policy enforcement, recovery, gateway behavior, and hardening scenarios.
+The repository currently contains a deterministic test suite covering transaction handling, incident detection, investigation, policy enforcement, recovery, gateway behavior, API boundaries, verification resilience, and adversarial safety scenarios.
 
-The validated development environment currently reports:
+The latest validated local development run reports:
 
 ```text
-36 passed
+62 passed
 ```
+
+The suite also reports two FastAPI deprecation warnings for the legacy `on_event` startup hook. These warnings do not affect test success and are tracked as a future framework-modernization item.
 
 ## Investigation
 
@@ -243,7 +245,7 @@ Audit
 
 ## Engineering Safeguards
 
-PAYGUARD includes automated tests for important failure and safety cases, including duplicate event handling, out-of-order event arrival, transaction state reconstruction, healthy transactions producing no incident, revenue-threatening incident detection, read-only investigation, unknown or tampered recovery actions, AI output sanitization, insufficient evidence causing denial, refunds requiring human approval, high-value recovery requiring human approval, recovery idempotency, execution failure detection, post-action verification, decision ledger recording, and gateway behavior.
+PAYGUARD includes automated tests for important failure and safety cases, including duplicate event handling, out-of-order event arrival, transaction state reconstruction, healthy transactions producing no incident, revenue-threatening incident detection, read-only investigation, unknown or tampered recovery actions, AI output sanitization, insufficient evidence causing denial, refunds requiring human approval, high-value recovery requiring human approval, recovery idempotency, execution failure detection, post-action verification, decision ledger recording, API-level approval enforcement, approval-token replay protection, and gateway behavior.
 
 The system is intentionally not designed to automate every recovery action.
 
