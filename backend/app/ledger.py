@@ -17,6 +17,11 @@ class DecisionLedgerEntry:
     action_cost: int
     details: Dict[str, Any]
     created_at: str
+    # Backward-compatible alias used by the frontend ledger renderer.
+    policy_status: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "policy_status", self.policy_decision)
 
 
 @dataclass
