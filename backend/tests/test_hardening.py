@@ -70,6 +70,20 @@ def test_executor_denies_by_default():
     assert state.transaction_id not in store.order_confirmed
 
 
+def test_verifier_rejects_mismatched_execution_result():
+    store = MerchantRecoveryStore()
+    executor = RecoveryExecutor(store)
+    state = TransactionState("tx")
+    state.payment.status = "CAPTURED"
+    state.payment.amount = 4999
+    state.order.status = "PAID"
+    result = executor.execute("RECONSTRUCT_ORDER", state, approved=True)
+    from app.verifier import verify
+    verification = verify("RETRY_FULFILLMENT", state, result)
+    assert verification.status == "FAILED"
+    assert verification.revenue_recovered == 0
+
+
 def test_verifier_detects_failed_mutation():
     store = MerchantRecoveryStore()
     executor = RecoveryExecutor(store)
