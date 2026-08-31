@@ -3,7 +3,7 @@ setlocal
 cd /d "%~dp0"
 if not exist "backend\.venv\Scripts\python.exe" (
   echo Creating virtual environment...
-  py -m venv backend\.venv
+  py -3.13 -m venv backend\.venv
   if errorlevel 1 exit /b 1
   echo Installing dependencies...
   backend\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
