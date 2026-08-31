@@ -14,6 +14,9 @@ class VerificationResult:
 
 
 def verify(action_type: str, state: TransactionState, result: ExecutionResult) -> VerificationResult:
+    if result.action_type != action_type:
+        return VerificationResult("FAILED", "Execution result does not match the requested recovery action.", 0)
+
     if result.status not in {"EXECUTED", "ALREADY_EXECUTED"}:
         return VerificationResult("FAILED", "Recovery action did not execute.", 0)
 
