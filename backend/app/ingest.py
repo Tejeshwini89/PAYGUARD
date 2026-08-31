@@ -20,10 +20,12 @@ class EventIngestor:
         self._event_ids: Dict[str, Event] = {}
 
     def ingest(self, event: Event) -> IngestResult:
-        if event.event_id in self._event_ids:
-            return IngestResult(accepted=False, duplicate=True, reason="duplicate_event_id")
+        # Authenticate before consuming the event ID namespace. An unverified
+        # webhook must never reserve an ID and block a later valid delivery.
         if not event.signature_verified:
             return IngestResult(accepted=False, duplicate=False, reason="signature_verification_failed")
+        if event.event_id in self._event_ids:
+            return IngestResult(accepted=False, duplicate=True, reason="duplicate_event_id")
         self._event_ids[event.event_id] = event
         return IngestResult(accepted=True, duplicate=False, reason="accepted")
 
