@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .detector import IncidentDetector
 from .evidence import build_evidence
-from .investigator import CandidateAction, DeterministicInvestigator
+from .investigator import CandidateAction, Diagnosis, DeterministicInvestigator
 from .llm_agent import OpenAIInvestigator
 from .policy import RecoveryPolicy
 from .executor import MerchantRecoveryStore, RecoveryExecutor
@@ -75,6 +75,25 @@ def _recovery_dependencies():
         getattr(app.state, "payguard_executor", executor),
         getattr(app.state, "payguard_ledger", ledger),
         getattr(app.state, "payguard_approval_service", approval_service),
+    )
+
+
+def _policy_diagnosis(diagnosis) -> Diagnosis:
+    """Convert the LLM diagnosis into the shared policy contract.
+
+    The policy layer must evaluate the same diagnosis and candidate action
+    produced by the investigator. The LLM remains non-authoritative: policy
+    independently decides ALLOW_AUTONOMOUS, REQUIRE_HUMAN, or DENY.
+    """
+    return Diagnosis(
+        incident_type=diagnosis.incident_type,
+        root_cause=diagnosis.root_cause,
+        confidence=diagnosis.confidence,
+        evidence=[e.model_dump() if hasattr(e, "model_dump") else e for e in diagnosis.evidence],
+        candidate_actions=[
+            CandidateAction(**a.model_dump()) if hasattr(a, "model_dump") else CandidateAction(**a)
+            for a in diagnosis.candidate_actions
+        ],
     )
 
 
@@ -218,12 +237,11 @@ def ai_investigate(scenario: str):
     results = []
     for incident in incidents:
         diagnosis = ai_investigator.investigate(incident, state, tools)
-        decisions = []
-        for action in diagnosis.candidate_actions:
-            candidate = CandidateAction(**action.model_dump())
-            decisions.append(policy.evaluate(
-                DeterministicInvestigator().investigate(incident, tools), candidate, state
-            ).__dict__)
+        policy_diagnosis = _policy_diagnosis(diagnosis)
+        decisions = [
+            policy.evaluate(policy_diagnosis, action, state).__dict__
+            for action in policy_diagnosis.candidate_actions
+        ]
         results.append({
             "incident": incident.__dict__,
             "diagnosis": diagnosis.model_dump(),
@@ -256,14 +274,15 @@ def recover(scenario: str, action_type: str, human_approved: bool = False, appro
     bundle = build_evidence(state, events)
     tools = InvestigationTools(state, events, bundle)
     diagnosis = ai_investigator.investigate(incident, state, tools)
-    selected = next((a for a in diagnosis.candidate_actions if a.action_type == action_type), None)
+    policy_diagnosis = _policy_diagnosis(diagnosis)
+    selected = next((a for a in policy_diagnosis.candidate_actions if a.action_type == action_type), None)
     if selected is None:
-        return {"error": "action_not_proposed", "proposed_actions": [a.model_dump() for a in diagnosis.candidate_actions]}
+        return {"error": "action_not_proposed", "proposed_actions": [a.__dict__ for a in policy_diagnosis.candidate_actions]}
     recovery_executor, recovery_ledger, recovery_approval_service = _recovery_dependencies()
     outcome = perform_recovery(
         incident,
-        DeterministicInvestigator().investigate(incident, tools),
-        CandidateAction(**selected.model_dump()),
+        policy_diagnosis,
+        selected,
         state,
         policy,
         recovery_executor,
