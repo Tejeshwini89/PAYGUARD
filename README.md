@@ -153,9 +153,9 @@ cd backend
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-The repository currently contains a deterministic test suite covering transaction handling, incident detection, investigation, policy enforcement, recovery, gateway behavior, API boundaries, verification resilience, and adversarial safety scenarios.
+The repository contains a deterministic test suite covering transaction handling, incident detection, investigation, policy enforcement, recovery, gateway behavior, API boundaries, verification resilience, and adversarial safety scenarios.
 
-The latest validated local development run reports:
+The latest previously validated local development run reported:
 
 ```text
 62 passed
@@ -167,7 +167,7 @@ The suite also reports two FastAPI deprecation warnings for the legacy `on_event
 
 PAYGUARD supports a deterministic investigation path and an optional LLM-powered investigation path.
 
-The deterministic investigator provides reproducible structured diagnoses without requiring an external AI API. This makes the core demonstration repeatable and allows the recovery and policy layers to be evaluated consistently.
+The deterministic investigator provides reproducible structured diagnoses without requiring an external AI API. This makes the core demonstration repeatable and provides the deterministic fallback when an external AI API is unavailable.
 
 The optional LLM investigator can be enabled by creating a local `.env` file from `.env.example` and configuring:
 
@@ -177,7 +177,42 @@ OPENAI_API_KEY=...
 
 The `.env` file is excluded from version control.
 
-Regardless of investigation mode, recovery authorization remains inside PAYGUARD's structured policy and execution layers.
+The LLM investigator is a **tool-using agent**, not a free-form chatbot. It can read payment, order, inventory, fulfillment, event-history, duplicate-payment, and evidence tools. It returns structured root-cause reasoning, evidence claims, candidate recovery actions, confidence, expected recovery, expected cost, and a recommended action.
+
+The AI agent has read-only investigation tools. It cannot directly execute financial actions.
+
+### AI Agent → Policy Contract
+
+The authorization path is explicitly:
+
+```text
+Transaction Events
+      ↓
+State Reconstruction
+      ↓
+Incident Detection
+      ↓
+AI Investigation Agent
+      ↓
+Output Sanitization
+      ↓
+Policy Engine
+      ├── ALLOW_AUTONOMOUS
+      ├── REQUIRE_HUMAN
+      └── DENY
+      ↓
+Recovery Executor
+      ↓
+Post-action Verification
+      ↓
+Decision Ledger
+```
+
+The policy engine evaluates the **same diagnosis and candidate action produced by the AI investigator**. It does not grant the model financial authority. Confidence thresholds, risk flags, transaction-value limits, action allowlists, inventory state, refund rules, and human-approval requirements are independently enforced by the policy layer.
+
+When no LLM API key is configured, PAYGUARD uses the deterministic investigator as an explicit fallback so the demo remains reproducible.
+
+See [`docs/AI_AGENT_EVALUATION.md`](docs/AI_AGENT_EVALUATION.md) for the detailed agent contract and safety boundary.
 
 ## Razorpay Integration Boundary
 
